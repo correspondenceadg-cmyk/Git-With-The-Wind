@@ -67,15 +67,26 @@ function labelNames(issue) {
     const raw = issue?.labels ?? [];
     return raw.map((l) => (typeof l === 'string' ? l : (l.name ?? '')));
 }
+function isLeaderboard(issue) {
+    if (!issue)
+        return false;
+    if (labelNames(issue).includes('leaderboard'))
+        return true;
+    return (issue.body ?? '').includes('<!-- LEADERBOARD_START -->');
+}
 async function onIssueOpened(octokit, repo, issue) {
     if (!issue)
         return;
-    if (labelNames(issue).includes('leaderboard')) {
+    if (isLeaderboard(issue)) {
         core.info('Leaderboard issue — not seeding a vault.');
         return;
     }
     const layout = (0, generator_1.generateVault)(issue.number);
-    const initialState = { ...types_1.DEFAULT_STATE, issue_number: issue.number };
+    const initialState = {
+        ...types_1.DEFAULT_STATE,
+        issue_number: issue.number,
+        layout,
+    };
     const body = renderVaultBody(initialState, layout);
     await octokit.rest.issues.update({
         owner: repo.owner,
@@ -91,7 +102,7 @@ async function onComment(octokit, repo, issue, comment) {
         return;
     if (comment.user?.type === 'Bot')
         return;
-    if (labelNames(issue).includes('leaderboard'))
+    if (isLeaderboard(issue))
         return;
     const command = (0, parser_1.parseCommand)(comment.body ?? '');
     if (!command)
@@ -106,15 +117,16 @@ async function onComment(octokit, repo, issue, comment) {
         await reply(octokit, repo, issue.number, terminalMessage(state));
         return;
     }
+    const login = comment.user?.login ?? 'anonymous';
     const now = Date.now();
-    const lastActionAt = new Date(state.last_action_at).getTime();
-    const verdict = (0, ratelimit_1.checkRateLimit)(lastActionAt, null, now);
+    const userLast = state.users[login] ?? null;
+    const verdict = (0, ratelimit_1.checkRateLimit)(userLast, now);
     if (!verdict.allowed) {
         await reply(octokit, repo, issue.number, verdict.reason ?? 'Rate limited.');
         return;
     }
     const result = (0, resolver_1.resolveTurn)(state, command);
-    const nextState = applyResult(state, result);
+    const nextState = applyResult(state, result, login, now);
     if (nextState.heat >= mechanics_1.HEAT_LIMIT) {
         nextState.vault_status = 'busted';
     }
@@ -131,19 +143,18 @@ async function onComment(octokit, repo, issue, comment) {
     }
     await reply(octokit, repo, issue.number, (0, flavor_1.renderFlavor)(result));
     if ((0, mechanics_1.isVictory)(nextState)) {
-        await recordVictory(octokit, repo, comment.user?.login ?? 'unknown', nextState);
+        await recordVictory(octokit, repo, login, nextState);
     }
 }
 // State application
-// applyResult({ money: 50000, heat: 20, turn: 1 }, { moneyDelta: 100000, heatDelta: 5, turn + 1 })
-//   -> { money: 150000, heat: 25, turn: 2, last_action_at: <now> }
-function applyResult(state, result) {
+function applyResult(state, result, login, now) {
     const next = {
         ...state,
         money: Math.max(0, state.money + result.moneyDelta),
         heat: Math.min(mechanics_1.HEAT_LIMIT, Math.max(0, state.heat + result.heatDelta)),
         turn: state.turn + 1,
-        last_action_at: new Date().toISOString(),
+        last_action_at: new Date(now).toISOString(),
+        users: { ...state.users, [login]: now },
         resources: {
             skeleton_keys: Math.max(0, state.resources.skeleton_keys + (result.skeletonKeysDelta ?? 0)),
             brute_force: Math.max(0, state.resources.brute_force + (result.bruteForceDelta ?? 0)),
@@ -178,6 +189,7 @@ async function recordVictory(octokit, repo, username, state) {
         username,
         money: state.money,
         turns: state.turn,
+        difficulty: state.difficulty,
         wonAt: new Date().toISOString(),
     });
     await octokit.rest.issues.update({
@@ -197,7 +209,6 @@ async function reply(octokit, repo, issueNumber, body) {
     });
 }
 // Terminal rendering
-// renderBusted({ heat: 100, money: 350000, turn: 18 }) -> police banner + crew in custody
 function renderBusted(state) {
     return [
         '```',

@@ -12,7 +12,12 @@ import {
   recordWin,
   replaceLeaderboardBlock,
 } from './game/leaderboard';
-import { DEFAULT_STATE, type HeistState, type TurnResult } from './types';
+import {
+  DEFAULT_STATE,
+  type HeistState,
+  type TurnResult,
+  type VaultLayout,
+} from './types';
 
 type Octokit = ReturnType<typeof github.getOctokit>;
 type Repo = { owner: string; repo: string };
@@ -43,8 +48,14 @@ async function main(): Promise<void> {
 // Issue opened -> seed vault
 
 function labelNames(issue: typeof github.context.payload.issue): string[] {
-  const raw = issue?.labels ?? [];
+  const raw: Array<string | { name?: string }> = issue?.labels ?? [];
   return raw.map((l) => (typeof l === 'string' ? l : (l.name ?? '')));
+}
+
+function isLeaderboard(issue: typeof github.context.payload.issue): boolean {
+  if (!issue) return false;
+  if (labelNames(issue).includes('leaderboard')) return true;
+  return (issue.body ?? '').includes('<!-- LEADERBOARD_START -->');
 }
 
 async function onIssueOpened(
@@ -53,12 +64,16 @@ async function onIssueOpened(
   issue: typeof github.context.payload.issue
 ): Promise<void> {
   if (!issue) return;
-  if (labelNames(issue).includes('leaderboard')) {
+  if (isLeaderboard(issue)) {
     core.info('Leaderboard issue — not seeding a vault.');
     return;
   }
   const layout = generateVault(issue.number);
-  const initialState: HeistState = { ...DEFAULT_STATE, issue_number: issue.number };
+  const initialState: HeistState = {
+    ...DEFAULT_STATE,
+    issue_number: issue.number,
+    layout,
+  };
   const body = renderVaultBody(initialState, layout);
   await octokit.rest.issues.update({
     owner: repo.owner,
@@ -79,7 +94,7 @@ async function onComment(
 ): Promise<void> {
   if (!issue || !comment) return;
   if (comment.user?.type === 'Bot') return;
-  if (labelNames(issue).includes('leaderboard')) return;
+  if (isLeaderboard(issue)) return;
 
   const command = parseCommand(comment.body ?? '');
   if (!command) return;
@@ -96,16 +111,17 @@ async function onComment(
     return;
   }
 
+  const login = comment.user?.login ?? 'anonymous';
   const now = Date.now();
-  const lastActionAt = new Date(state.last_action_at).getTime();
-  const verdict = checkRateLimit(lastActionAt, null, now);
+  const userLast = state.users[login] ?? null;
+  const verdict = checkRateLimit(userLast, now);
   if (!verdict.allowed) {
     await reply(octokit, repo, issue.number, verdict.reason ?? 'Rate limited.');
     return;
   }
 
   const result = resolveTurn(state, command);
-  const nextState = applyResult(state, result);
+  const nextState = applyResult(state, result, login, now);
   if (nextState.heat >= HEAT_LIMIT) {
     nextState.vault_status = 'busted';
   }
@@ -126,21 +142,25 @@ async function onComment(
   await reply(octokit, repo, issue.number, renderFlavor(result));
 
   if (isVictory(nextState)) {
-    await recordVictory(octokit, repo, comment.user?.login ?? 'unknown', nextState);
+    await recordVictory(octokit, repo, login, nextState);
   }
 }
 
 // State application
 
-// applyResult({ money: 50000, heat: 20, turn: 1 }, { moneyDelta: 100000, heatDelta: 5, turn + 1 })
-//   -> { money: 150000, heat: 25, turn: 2, last_action_at: <now> }
-function applyResult(state: HeistState, result: TurnResult): HeistState {
+function applyResult(
+  state: HeistState,
+  result: TurnResult,
+  login: string,
+  now: number
+): HeistState {
   const next: HeistState = {
     ...state,
     money: Math.max(0, state.money + result.moneyDelta),
     heat: Math.min(HEAT_LIMIT, Math.max(0, state.heat + result.heatDelta)),
     turn: state.turn + 1,
-    last_action_at: new Date().toISOString(),
+    last_action_at: new Date(now).toISOString(),
+    users: { ...state.users, [login]: now },
     resources: {
       skeleton_keys: Math.max(
         0,
@@ -184,6 +204,7 @@ async function recordVictory(
     username,
     money: state.money,
     turns: state.turn,
+    difficulty: state.difficulty,
     wonAt: new Date().toISOString(),
   });
   await octokit.rest.issues.update({
@@ -212,7 +233,6 @@ async function reply(
 
 // Terminal rendering
 
-// renderBusted({ heat: 100, money: 350000, turn: 18 }) -> police banner + crew in custody
 function renderBusted(state: HeistState): string {
   return [
     '```',
@@ -239,10 +259,7 @@ function terminalMessage(state: HeistState): string {
 
 // Vault body
 
-function renderVaultBody(
-  state: HeistState,
-  layout: ReturnType<typeof generateVault>
-): string {
+function renderVaultBody(state: HeistState, layout: VaultLayout): string {
   return [
     '# 🏦 The Vault',
     '',

@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateVault = generateVault;
-// generateVault(42) -> deterministic layout for seed 42
+// generateVault(42) -> { vaultMoney: ~620k, corruptGuards: 1, alarmDoors: 2 }
+// generateVault(42) -> same, always
 function generateVault(seed) {
     const rng = mulberry32(seed);
     return {

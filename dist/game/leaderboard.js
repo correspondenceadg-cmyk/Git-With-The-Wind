@@ -1,5 +1,4 @@
 "use strict";
-// Shapes
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseLeaderboard = parseLeaderboard;
 exports.serializeLeaderboard = serializeLeaderboard;
@@ -10,8 +9,6 @@ const LB_START = '<!-- LEADERBOARD_START -->';
 const LB_END = '<!-- LEADERBOARD_END -->';
 const MAX_ENTRIES = 100;
 // Parse
-// parseLeaderboard('...<!-- LEADERBOARD_START -->{"entries":[]}<!-- LEADERBOARD_END -->...')
-//   -> { entries: [] }
 function parseLeaderboard(body) {
     const start = body.indexOf(LB_START);
     const end = body.indexOf(LB_END);
@@ -30,7 +27,6 @@ function parseLeaderboard(body) {
 function serializeLeaderboard(lb) {
     return `${LB_START}\n${JSON.stringify(lb)}\n${LB_END}`;
 }
-// replaceLeaderboardBlock(body, lb) -> body with the hidden block overwritten
 function replaceLeaderboardBlock(body, lb) {
     const start = body.indexOf(LB_START);
     const end = body.indexOf(LB_END);
@@ -39,10 +35,15 @@ function replaceLeaderboardBlock(body, lb) {
         return `${body}\n\n${block}\n`;
     return `${body.slice(0, start)}${block}${body.slice(end + LB_END.length)}`;
 }
-// recordWin({ entries: [{ money: 500000 }] }, { money: 1000000 }) -> sorted, entry inserted
+// score({ money: 1_000_000, difficulty: 'hard'   }) -> 2_000_000
+// score({ money: 1_000_000, difficulty: 'normal' }) -> 1_000_000
+function score(entry) {
+    return entry.money * (entry.difficulty === 'hard' ? 2 : 1);
+}
+// recordWin({ entries: [] }, { money: 1M, difficulty: 'hard' }) -> entries sorted by score desc
 function recordWin(lb, entry) {
     const merged = [...lb.entries, entry]
-        .sort((a, b) => b.money - a.money)
+        .sort((a, b) => score(b) - score(a))
         .slice(0, MAX_ENTRIES);
     return { entries: merged };
 }

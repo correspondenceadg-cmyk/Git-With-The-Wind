@@ -5,6 +5,12 @@ export interface HeistResources {
   brute_force: number;
 }
 
+export interface VaultLayout {
+  vaultMoney: number;
+  corruptGuards: number;
+  alarmDoors: number;
+}
+
 export type HeistPhase = 'infiltration' | 'vault' | 'getaway';
 export type VaultStatus = 'locked' | 'unlocked' | 'escaped' | 'busted';
 export type Difficulty = 'normal' | 'hard';
@@ -13,12 +19,14 @@ export type Verb = 'hack' | 'bribe' | 'crack' | 'escape' | 'start';
 export interface HeistState {
   issue_number: number;
   vault_status: VaultStatus;
+  layout: VaultLayout;
   money: number;
   heat: number;
   turn: number;
   phase: HeistPhase;
   difficulty: Difficulty;
   last_action_at: string;
+  users: Record<string, number>;
   resources: HeistResources;
 }
 
@@ -46,12 +54,14 @@ export interface TurnResult {
 export const DEFAULT_STATE: HeistState = {
   issue_number: 0,
   vault_status: 'locked',
+  layout: { vaultMoney: 750_000, corruptGuards: 1, alarmDoors: 1 },
   money: 0,
   heat: 0,
   turn: 1,
   phase: 'infiltration',
   difficulty: 'normal',
   last_action_at: new Date(0).toISOString(),
+  users: {},
   resources: {
     skeleton_keys: 0,
     brute_force: 0,

@@ -1,24 +1,32 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ESCAPE_THRESHOLD = exports.HEAT_LIMIT = void 0;
+exports.HARD_ESCAPE = exports.NORMAL_ESCAPE = exports.HEAT_LIMIT = void 0;
+exports.escapeThreshold = escapeThreshold;
 exports.isGameOver = isGameOver;
 exports.isTerminal = isTerminal;
 exports.isVictory = isVictory;
-const HEAT_LIMIT = 100;
-exports.HEAT_LIMIT = HEAT_LIMIT;
-const ESCAPE_THRESHOLD = 1_000_000;
-exports.ESCAPE_THRESHOLD = ESCAPE_THRESHOLD;
-// isGameOver({ heat: 100, vault_status: 'locked', ... })  -> true
-// isGameOver({ heat:  40, vault_status: 'busted', ... })  -> true
-function isGameOver(state) {
-    return state.heat >= HEAT_LIMIT || state.vault_status === 'busted';
+exports.HEAT_LIMIT = 100;
+exports.NORMAL_ESCAPE = 1_000_000;
+exports.HARD_ESCAPE = 750_000;
+// escapeThreshold('normal') -> 1_000_000
+// escapeThreshold('hard')   ->   750_000
+function escapeThreshold(difficulty) {
+    return difficulty === 'hard' ? exports.HARD_ESCAPE : exports.NORMAL_ESCAPE;
 }
-// isTerminal({ vault_status: 'escaped', ... }) -> true
-// isTerminal({ vault_status: 'busted',  ... }) -> true
+// isGameOver({ heat: 100, vault_status: 'locked' })  -> true
+// isGameOver({ heat:  40, vault_status: 'busted' })  -> true
+function isGameOver(state) {
+    return state.heat >= exports.HEAT_LIMIT || state.vault_status === 'busted';
+}
+// isTerminal({ vault_status: 'escaped' }) -> true
+// isTerminal({ vault_status: 'busted'  }) -> true
 function isTerminal(state) {
     return isGameOver(state) || state.vault_status === 'escaped';
 }
-// isVictory({ vault_status: 'escaped', money: 1_000_000, ... }) -> true
+// isVictory({ vault_status: 'escaped', difficulty: 'hard', money:   750_000 }) -> true
+// isVictory({ vault_status: 'escaped', difficulty: 'hard', money:   749_999 }) -> false
+// isVictory({ vault_status: 'escaped', difficulty: 'normal', money: 1_000_000 }) -> true
 function isVictory(state) {
-    return state.vault_status === 'escaped' && state.money >= ESCAPE_THRESHOLD;
+    return (state.vault_status === 'escaped' &&
+        state.money >= escapeThreshold(state.difficulty));
 }

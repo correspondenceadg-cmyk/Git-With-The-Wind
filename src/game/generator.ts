@@ -1,10 +1,7 @@
-export interface VaultLayout {
-  vaultMoney: number;
-  corruptGuards: number;
-  alarmDoors: number;
-}
+import type { VaultLayout } from '../types';
 
-// generateVault(42) -> deterministic layout for seed 42
+// generateVault(42) -> { vaultMoney: ~620k, corruptGuards: 1, alarmDoors: 2 }
+// generateVault(42) -> same, always
 export function generateVault(seed: number): VaultLayout {
   const rng = mulberry32(seed);
   return {

@@ -1,0 +1,18 @@
+{
+  "name": "ws.tilda.sentryprotocol",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Git With The Wind — serverless multiplayer heist powered by GitHub Issues and Actions",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@actions/core": "^1.10.1",
+    "@actions/github": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.4.5"
+  }
+}

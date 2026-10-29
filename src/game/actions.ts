@@ -7,8 +7,6 @@ import { escapeThreshold } from './mechanics';
 // turn 5 roll 95 >= 80          -> fail,   +10 heat, -1 BF
 // target 'supply'               -> +2 BF, +10 heat, no cost
 // target 'keyring'              -> +1 key, +15 heat, no cost
-// target missing                -> +5 heat, no cost
-// BF < 1                        -> +10 heat, no cost
 export function resolveHack(state: HeistState, command: Command): TurnResult {
   if (!command.target) {
     return {
@@ -73,7 +71,6 @@ export function resolveHack(state: HeistState, command: Command): TurnResult {
 // bribe guard   in getaway phase        -> refused, +0 heat, no money
 // bribe guard   with $50k, 0 corrupt    -> $50k spent, -10 heat
 // bribe guard   with $75k, 1 corrupt    -> $75k spent, -10 heat
-// bribe guard   with $10k               -> refused, +10 heat, no money
 // bribe insider turn 7 roll 13 < 15     -> double agent: -1 key, +10 heat, no phase advance
 // bribe insider turn 8 roll 72 >= 15    -> -1 key, phase advances
 // bribe insider in getaway              -> refused, no key
@@ -210,34 +207,31 @@ export function resolveCrack(state: HeistState, command: Command): TurnResult {
 
 // escape
 
-// normal + $1M + getaway     -> escapeVault
-// hard   + $750k + getaway   -> escapeVault
-// any phase != getaway       -> refused, +10 heat
-// insufficient loot          -> refused, +25 heat
+// in getaway, loot >= threshold, heat < 50 -> Clean
+// in getaway, loot >= threshold, heat >= 50 -> Messy
+// not in getaway OR loot < threshold         -> Wimpy
 export function resolveEscape(state: HeistState, _command: Command): TurnResult {
-  if (state.phase !== 'getaway') {
-    return {
-      success: false,
-      heatDelta: 10,
-      moneyDelta: 0,
-      message: 'No exit planned. Get to the getaway phase first.',
-    };
-  }
   const threshold = escapeThreshold(state.difficulty);
-  if (state.money < threshold) {
-    return {
-      success: false,
-      heatDelta: 25,
-      moneyDelta: 0,
-      message: `Not enough loot. Need $${threshold.toLocaleString()}, have $${state.money.toLocaleString()}.`,
-    };
+  const hasLoot = state.money >= threshold;
+  const inGetaway = state.phase === 'getaway';
+  const isMessy = state.heat >= 50;
+
+  let message: string;
+
+  if (!hasLoot || !inGetaway) {
+    message = `You slip away with $${state.money.toLocaleString()}. Wimpy escape. The crew will remember this.`;
+  } else if (isMessy) {
+    message = `You made it out with $${state.money.toLocaleString()}, but the sirens are deafening. Messy escape.`;
+  } else {
+    message = `Clean getaway. The wind is with you.`;
   }
+
   return {
     success: true,
     heatDelta: 0,
     moneyDelta: 0,
     escapeVault: true,
-    message: 'Engaging escape route. The wind is with you.',
+    message,
   };
 }
 

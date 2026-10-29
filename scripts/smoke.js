@@ -206,15 +206,46 @@ it('bribe guard scales with layout.corruptGuards', () => {
   assert.equal(r.moneyDelta, -100_000);
 });
 
-// Escape
+// Escape branches
 
-it('escape refused outside getaway', () => {
+it('clean escape: getaway, loot, low heat', () => {
   const r = resolveTurn(
-    fresh({ money: 2_000_000, phase: 'vault' }),
+    fresh({ money: 1_500_000, phase: 'getaway', heat: 10 }),
     { verb: 'escape', flags: [] }
   );
-  assert.equal(r.success, false);
-  assert.equal(r.heatDelta, 10);
+  assert.equal(r.success, true);
+  assert.equal(r.escapeVault, true);
+  assert.match(r.message, /Clean getaway/);
+});
+
+it('messy escape: getaway, loot, high heat', () => {
+  const r = resolveTurn(
+    fresh({ money: 1_500_000, phase: 'getaway', heat: 60 }),
+    { verb: 'escape', flags: [] }
+  );
+  assert.equal(r.success, true);
+  assert.equal(r.escapeVault, true);
+  assert.match(r.message, /Messy escape/);
+});
+
+it('wimpy escape: wrong phase', () => {
+  const r = resolveTurn(
+    fresh({ money: 2_000_000, phase: 'vault', heat: 10 }),
+    { verb: 'escape', flags: [] }
+  );
+  assert.equal(r.success, true);
+  assert.equal(r.escapeVault, true);
+  assert.match(r.message, /Wimpy escape/);
+});
+
+it('wimpy escape: insufficient loot', () => {
+  const r = resolveTurn(
+    fresh({ money: 200_000, phase: 'getaway', heat: 10 }),
+    { verb: 'escape', flags: [] }
+  );
+  assert.equal(r.success, true);
+  assert.equal(r.escapeVault, true);
+  assert.match(r.message, /Wimpy escape/);
 });
 
 it('escape threshold: normal $1M, hard $750k', () => {
@@ -222,21 +253,9 @@ it('escape threshold: normal $1M, hard $750k', () => {
   assert.equal(escapeThreshold('hard'), 750_000);
 });
 
-it('escape allowed in getaway with $750k on hard', () => {
-  const r = resolveTurn(
-    fresh({ difficulty: 'hard', money: 750_000, phase: 'getaway' }),
-    { verb: 'escape', flags: [] }
-  );
-  assert.equal(r.success, true);
-  assert.equal(r.escapeVault, true);
-});
-
-it('escape refused on hard with $900k < $1M? no — $900k >= $750k', () => {
-  const r = resolveTurn(
-    fresh({ difficulty: 'hard', money: 900_000, phase: 'getaway' }),
-    { verb: 'escape', flags: [] }
-  );
-  assert.equal(r.success, true);
+it('isVictory on any escape', () => {
+  assert.equal(isVictory(fresh({ vault_status: 'escaped', money: 0 })), true);
+  assert.equal(isVictory(fresh({ vault_status: 'escaped', money: 1_000_000 })), true);
 });
 
 // Rate limit
@@ -261,15 +280,6 @@ it('checkRateLimit null allowed', () => {
 
 it('isTerminal busted', () => {
   assert.equal(isTerminal(fresh({ vault_status: 'busted' })), true);
-});
-
-it('isVictory normal vs hard', () => {
-  assert.equal(isVictory(fresh({ vault_status: 'escaped', money: 1_000_000 })), true);
-  assert.equal(
-    isVictory(fresh({ vault_status: 'escaped', difficulty: 'hard', money: 999_999 })),
-    true
-  );
-  assert.equal(isVictory(fresh({ vault_status: 'escaped', money: 749_999 })), false);
 });
 
 console.log(`\n${pass} checks passed`);

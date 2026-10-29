@@ -23,6 +23,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 18
+          cache: npm
+
+      - name: Install runtime deps
+        run: npm ci --omit=dev
 
       - name: Verify build
         run: test -f dist/index.js
@@ -32,4 +36,3 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PREVENT_SPAM: 'true'
           HEIST_TURN_INTERVAL_MS: '60000'
-          HEIST_COMMENT_INTERVAL_MS: '5000'

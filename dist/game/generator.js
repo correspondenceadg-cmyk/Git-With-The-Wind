@@ -1,0 +1,22 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.generateVault = generateVault;
+// generateVault(42) -> deterministic layout for seed 42
+function generateVault(seed) {
+    const rng = mulberry32(seed);
+    return {
+        vaultMoney: Math.floor(rng() * 500_000) + 500_000,
+        corruptGuards: Math.floor(rng() * 3),
+        alarmDoors: Math.floor(rng() * 3) + 1,
+    };
+}
+// mulberry32 — compact seeded PRNG so every issue is replayable
+function mulberry32(seed) {
+    let t = seed >>> 0;
+    return () => {
+        t = (t + 0x6d2b79f5) >>> 0;
+        let r = Math.imul(t ^ (t >>> 15), 1 | t);
+        r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+        return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    };
+}

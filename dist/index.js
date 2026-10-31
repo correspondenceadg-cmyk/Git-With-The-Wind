@@ -233,19 +233,33 @@ function terminalMessage(state) {
 }
 // Vault body
 function renderVaultBody(state, layout) {
-    return [
-        '# 🏦 The Vault',
-        '',
-        '```',
+    const isOpen = state.vault_status === 'unlocked' || state.vault_status === 'escaped';
+    const art = isOpen ? [
+        '        _______________________',
+        '       /                       \\',
+        '      |   [##]  [##]  [##]  [##] |',
+        '      |   [##]  \\_/    [##]  [##] |',
+        '      |   [##]  [##]  [##]  [##] |',
+        '       \\_______________________/',
+        '         [ VAULT UNLOCKED ]'
+    ] : [
         '        _______________________',
         '       /                       \\',
         '      |   [##]  [##]  [##]  [##] |',
         '      |   [##]   SAFE   [##]  [##] |',
         '      |   [##]  [##]  [##]  [##] |',
         '       \\_______________________/',
+        '         [ VAULT LOCKED ]'
+    ];
+    return [
+        '# 🏦 The Vault',
+        '',
+        '```',
+        ...art,
         '```',
         '',
-        `**Layout preview:** $${layout.vaultMoney.toLocaleString()} behind the safe · ${layout.corruptGuards} corrupt guard(s) · ${layout.alarmDoors} alarm door(s)`,
+        `**Status:** ${state.vault_status.toUpperCase()} · **Phase:** ${state.phase}`,
+        `**Layout:** $${layout.vaultMoney.toLocaleString()} · ${layout.corruptGuards} corrupt guard(s) · ${layout.alarmDoors} alarm door(s)`,
         '',
         (0, state_1.replaceState)('', state).trim(),
         '',

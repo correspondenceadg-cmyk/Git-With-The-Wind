@@ -2,6 +2,7 @@
 
 A serverless multiplayer heist game. No web server. No database. **GitHub Issues are the DB, GitHub Actions are the backend.**
 
+![Build Status](https://github.com/correspondenceadg-cmyk/git-with-the-wind/actions/workflows/heist-engine.yml/badge.svg)
 ![Active Heists](https://img.shields.io/github/issues/correspondenceadg-cmyk/git-with-the-wind?style=flat-square&label=Active%20Heists)
 ![Last Commit](https://img.shields.io/github/last-commit/correspondenceadg-cmyk/git-with-the-wind?style=flat-square)
 ![Language](https://img.shields.io/github/languages/top/correspondenceadg-cmyk/git-with-the-wind?style=flat-square)
